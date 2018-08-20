@@ -6,7 +6,13 @@ A quick tour of Kafka functionality using Global News
 a. On Mac - run the script to download files of current news stories:
  1. Open a terminal
 
-2. cd ~/Downloads
+2. 
+```
+cd ~/Downloads
+scp https://github.com/markteehan/analyze_news/blob/master/getnews.sh .
+```
+
+
  3. Download the script to get the latest news:
 b. Download CP
 c. Start CP
