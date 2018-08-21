@@ -24,6 +24,56 @@ D=`ls -tr |grep confluent|grep -v tar|tail -1`
 cd $D
 ```
 
-4-Configure the connector for Kafka Spooldir from https://github.com/jcustenborder/kafka-connect-spooldir
+4-Download the connector for Kafka Spooldir from https://github.com/jcustenborder/kafka-connect-spooldir
+Connectors are open source, not executable, so normally each one must be compiled using Maven.
+To save time, download a connector pre-compiled for Mac OS (40MB) by running these commands:
+
+```
+cd ~/Downloads
+D=https://www.dropbox.com/s/h36fengpfd8ikmd/
+F=kafka-connect-spooldir.tar.gz
+wget $D/$F
+tar -mzxvf $F
+```
+
+5-Start Confluent Open Source
+```
+cd ~/Downloads
+F=`ls -d1r */|grep confluent|tail -1`
+cd $F
+export PATH=$F/bin:$PATH
+```
+
+Check the status - all services should be down:
+```
+$ confluent status
+This CLI is intended for development only, not for production
+https://docs.confluent.io/current/cli/index.html
+control-center is [DOWN]
+ksql-server is [DOWN]
+connect is [DOWN]
+kafka-rest is [DOWN]
+schema-registry is [DOWN]
+kafka is [DOWN]
+zookeeper is [DOWN]
+```
+
+Start Confluent:
+```
+$ confluent start
+This CLI is intended for development only, not for production
+https://docs.confluent.io/current/cli/index.html
+
+Using CONFLUENT_CURRENT: /var/folders/2q/94rs_ths71g_qg5ndjd4l1w00000gn/T/confluent.bOR1wUdk
+zookeeper is [UP]
+kafka is [UP]
+schema-registry is [UP]
+kafka-rest is [UP]
+connect is [UP]
+ksql-server is [UP]
+control-center is [UP]
+```
+
+
 
 
