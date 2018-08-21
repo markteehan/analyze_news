@@ -47,7 +47,7 @@ get_latest_file()
 
 DT=$(get_last_utc_interval)
 TARGET_FILE=`basename ${DT}.export.csv`
-if [ -f ${D}/$TARGET_FILE ];
+if [ -f ${D}/$TARGET_FILE -o -f ${D}/finished/$TARGET_FILE -o ${D}/error/$TARGET_FILE ];
 then
   echo;echo;echo;echo "(I) the latest file ($TARGET_FILE) has already been loaded. Re-run this after the next quarter-hour."
 else
