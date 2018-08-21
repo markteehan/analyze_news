@@ -44,18 +44,23 @@ To save time, download a connector pre-compiled for Mac OS (40MB) by running the
 
 ```
 cd ~/Downloads
-D=https://www.dropbox.com/s/h36fengpfd8ikmd/
-F=kafka-connect-spooldir.tar.gz
+D=https://www.dropbox.com/s/o9p12fggk42bvr3
+F=news_events_tarfile.tar
 wget $D/$F
 tar -mzxvf $F
+F=confluent-5.0.0/
+cp    gdelt_tarfile/restart_confluent.sh           ~/Downloads/restart_confluent.sh
+cp    gdelt_tarfile/getnews.sh                     ~/Downloads/getnews.sh
+cp    gdelt_tarfile/quickstart-spooldir.properties ~/Downloads/$F/etc/kafka-connect-spooldir/quickstart-spooldir.properties
+cp -R gdelt_tarfile/kafka-connect-spooldir         ~/Downloads/$F/share/java/kafka-connect-spooldir
 ```
 
 5-Start Confluent Open Source
 ```
 cd ~/Downloads
 F=`ls -d1r */|grep confluent|tail -1`
-cd $F
-export PATH=$F/bin:$PATH
+cd ~/Downloads/$F
+export PATH=~/Downloads/$F/bin:$PATH
 ```
 
 Check the status - all services should be down:
@@ -112,7 +117,7 @@ etc
 If the News Events were successfully produced to Kafka, then we should be able to consume them.
 In a new terminal window, run this
 ```
-cd ~/Downloads; F=`ls -d1r */|grep confluent|tail -1` ;cd $F; export PATH=$F/bin:$PATH
+cd ~/Downloads; F=`ls -d1r */|grep confluent|tail -1` ;cd $F; export PATH=~/Downloads/$F/bin:$PATH
 kafka-avro-console-consumer --bootstrap-server localhost:9092 --from-beginning --topic GDELT_EVENT 
 ```
 
@@ -122,4 +127,20 @@ After displaying the News Events, press Control-C to stop the consumer:
 ...
 Processed a total of 1544 messages
 ```
+
+Consume the News Events using Kafka Rest
+We need to start a webserver
+
+confluent load CsvSpoolDir -d /Users/teehan/Downloads/confluent-5.0.0/etc/kafka-connect-spooldir/quickstart-spooldir.properties
+
+the tarfile contains:
+     file restart_confluent.sh                                    ==> Downloads
+     file getnews.sh                                              ==> Downloads     
+     file kafka-connect-spooldir/quickstart-spooldir.properties   ==> confluent-5.0.0/etc
+directory kafka-connect-spooldir                                  ==> confluent-5.0.0/share/java
+
+
+
+
+
 
