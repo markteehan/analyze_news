@@ -1,6 +1,20 @@
 # analyze_news
 A quick tour of Kafka functionality using Global News
 
+Troubleshooting:
+Pre-requisites:
+1. this should work on any mac. If it doesnt then check:
+ - Does you hostname resolve to "localhost" ok?
+ - Is kafka/zookeeper already running? Ports 2181, 9092 etc should be free
+ - Your Downloads directory should be writable and have a few hundred MB of free space
+ 
+ Troubleshooting - reset
+ ```
+ confluent stop
+ confluent start
+ confluent stop kafka-rest
+ ```
+ 
 
 1 - Download the script to get the latest new events:
  1. Open a terminal
@@ -74,6 +88,38 @@ ksql-server is [UP]
 control-center is [UP]
 ```
 
+Create a topic to store News Events
+```
+bin/kafka-topics --create --zookeeper localhost:2181 --topic GDELT_EVENT --partitions 8 --replication-factor 1
+WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.
+Created topic "GDELT_EVENT".
+```
+
+Start the Spooldir connector, which will "produce" the News Events into the Topic.
+Once the connector has started, open a new terminal, and leave this session running
+```
+cd ~/Downloads
+sh start_spopoldir_connector.sh
 
 
+[2018-08-21 13:25:53,763] INFO Searching for file in ... gdelt_15mins 
+[2018-08-21 13:25:53,765] INFO Found 1 file(s) to process 
+[2018-08-21 13:25:53,772] INFO Opening /Users/teehan/Downloads/gdelt_15mins/20180820091500.export.csv 
+...
+etc
+```
+
+If the News Events were successfully produced to Kafka, then we should be able to consume them.
+In a new terminal window, run this
+```
+cd ~/Downloads; F=`ls -d1r */|grep confluent|tail -1` ;cd $F; export PATH=$F/bin:$PATH
+kafka-avro-console-consumer --bootstrap-server localhost:9092 --from-beginning --topic GDELT_EVENT 
+```
+
+After displaying the News Events, press Control-C to stop the consumer:
+```
+^C
+...
+Processed a total of 1544 messages
+```
 
