@@ -22,23 +22,22 @@ Pre-requisites:
 cd ~/Downloads
 wget https://raw.githubusercontent.com/markteehan/analyze_news/master/getnews.sh
 ```
-2 - Download and install Confluent Open Source
-Open https://www.confluent.io/product/confluent-open-source/ and click Download to get the latest Confluent Open Source
+2 - Download and install Confluent Enterprise
+Open https://www.confluent.io/download/ and click Download to get the latest Confluent Enterprise
 Select ".tar.gz" for the Desired Download Format, and enter your email address.
 The download size is ~300MB.
 
 3 - Unpack & Start Confluent Open Source. No changes will be made to your machine. It can be removed after the workshop.
 ```
 cd ~/Downloads
-F=`ls -ltR1  confluent-oss*|tail -1`
+F=`ls -ltr1 |grep confluent|grep gz|tail -1`
 echo;echo;echo "About to unpack and start using $F."
-echo "Hit return to continue, or <CTRL-C> to abort" ; read continue_or_not
+echo "Hit return to continue, or <CTRL-C> to abort..please wait.."
+sleep 2
 tar -mzxvf $F
-D=`ls -tr |grep confluent|grep -v tar|tail -1`
-cd $D
 ```
 
-4-Download the connector for Kafka Spooldir from https://github.com/jcustenborder/kafka-connect-spooldir
+4-Download the connector for Kafka Spooldir (source is  https://github.com/jcustenborder/kafka-connect-spooldir )
 Connectors are open source, not executable, so normally each one must be compiled using Maven.
 To save time, download a connector pre-compiled for Mac OS (40MB) by running these commands:
 
@@ -47,38 +46,99 @@ cd ~/Downloads
 D=https://www.dropbox.com/s/o9p12fggk42bvr3
 F=news_events_tarfile.tar
 wget $D/$F
+rm -rf gdelt_tarfile
 tar -mzxvf $F
-F=confluent-5.0.0/
-cp    gdelt_tarfile/restart_confluent.sh           ~/Downloads/restart_confluent.sh
-cp    gdelt_tarfile/getnews.sh                     ~/Downloads/getnews.sh
-cp    gdelt_tarfile/quickstart-spooldir.properties ~/Downloads/$F/etc/kafka-connect-spooldir/quickstart-spooldir.properties
-cp -R gdelt_tarfile/kafka-connect-spooldir         ~/Downloads/$F/share/java/kafka-connect-spooldir
+F=`ls -d1r */|grep confluent|tail -1`
+cp     gdelt_tarfile/restart_confluent.sh           ~/Downloads/restart_confluent.sh
+cp     gdelt_tarfile/getnews.sh                     ~/Downloads/getnews.sh
+cp     gdelt_tarfile/quickstart-spooldir.properties ~/Downloads/$F/etc/kafka-connect-spooldir/quickstart-spooldir.properties
+cp -R  gdelt_tarfile/kafka-connect-spooldir         ~/Downloads/$F/share/java/kafka-connect-spooldir
+rm     news_events_tarfile.tar
+rm -rf gdelt_tarfile
 ```
 
-5-Start Confluent Open Source
+The connecter is now installed and configured to automatically load new news events into Kafka.
+
+
+5-Start Confluent Enterprise
 ```
 cd ~/Downloads
 F=`ls -d1r */|grep confluent|tail -1`
-cd ~/Downloads/$F
 export PATH=~/Downloads/$F/bin:$PATH
+sh restart_confluent.sh
+confluent stop connect
 ```
 
-Check the status - all services should be down:
+Create a topic to store News Events
 ```
-$ confluent status
-This CLI is intended for development only, not for production
-https://docs.confluent.io/current/cli/index.html
-control-center is [DOWN]
-ksql-server is [DOWN]
-connect is [DOWN]
-kafka-rest is [DOWN]
-schema-registry is [DOWN]
-kafka is [DOWN]
-zookeeper is [DOWN]
+kafka-topics --create --zookeeper localhost:2181 --topic GDELT_EVENT --partitions 8 --replication-factor 1
+WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.
+Created topic "GDELT_EVENT".
 ```
 
-Start Confluent:
+
+Start the Spooldir Connector Standalone
 ```
+D=`ls -d1r */|grep confluent|tail -1`; cd ~/Downloads/$D
+connect-standalone etc/kafka/connect-standalone.properties ~/Downloads/kafka-connect-spooldir/config/GDELT.EVENT.properties
+```
+
+Get the latest news stories. Repeat this command on every quarter hour to get the latest news.
+```
+cd ~/Downloads
+sh getnews.sh
+```
+
+The Kafka-Spooldir connecter will automatically load new News Event files into the kafka topic.
+We can check this by consuming the News Events:
+In a new terminal window, run this
+```
+cd ~/Downloads; F=`ls -d1r */|grep confluent|tail -1` ;cd $F; export PATH=~/Downloads/$F/bin:$PATH
+kafka-avro-console-consumer --bootstrap-server localhost:9092 --from-beginning --topic GDELT_EVENT 
+```
+
+After displaying the News Events, press Control-C to stop the consumer:
+```
+^C
+...
+Processed a total of 1544 messages
+```
+
+Open C3:
+http://localhost:9021/
+
+.. inspect topics etc
+.. click kSQL
+
+In the Query editor create a stream that filters the 61 topic columns to a subset of columns that we are interested in.
+Add parameter "auto.offset.reset=earliest" 
+```
+CREATE STREAM GDELT_STREAM (EventId bigint, Day bigint, MonthYear bigint, Actor1Code varchar, Actor1Name varchar, Actor1CountryCode varchar, Actor1Type1Code varchar, Actor2Code varchar, Actor2Name varchar, Actor2CountryCode varchar, Actor2Type1Code varchar, AvgTone double, SourceUrl varchar)
+WITH (kafka_topic='GDELT_EVENT', value_format='AVRO');
+```
+Click Streams | ... | Query | Run Query to see the news events
+
+
+
+
+
+Next :
+1, open kSQL and create the stream over the topic. Do an inspect data
+2, In kSQL create an aggregated stream over the stream. Load more data. Inspect the data.
+3, Point: this is so muuch easier than implementing SQL Contexts using Spark Streaming.
+
+
+Phase II:
+1, wrap the SQL so that it can return JSON
+2, Return news query results to a D3 sankey diagram in chrome
+3, Show that the rest API can also be used to run SQL to retrieve data results (not just continuous queries).
+
+
+
+===================
+Notes
+
+
 $ confluent start
 This CLI is intended for development only, not for production
 https://docs.confluent.io/current/cli/index.html
@@ -91,14 +151,7 @@ kafka-rest is [UP]
 connect is [UP]
 ksql-server is [UP]
 control-center is [UP]
-```
 
-Create a topic to store News Events
-```
-bin/kafka-topics --create --zookeeper localhost:2181 --topic GDELT_EVENT --partitions 8 --replication-factor 1
-WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.
-Created topic "GDELT_EVENT".
-```
 
 Start the Spooldir connector, which will "produce" the News Events into the Topic.
 Once the connector has started, open a new terminal, and leave this session running
@@ -112,20 +165,6 @@ sh start_spopoldir_connector.sh
 [2018-08-21 13:25:53,772] INFO Opening /Users/teehan/Downloads/gdelt_15mins/20180820091500.export.csv 
 ...
 etc
-```
-
-If the News Events were successfully produced to Kafka, then we should be able to consume them.
-In a new terminal window, run this
-```
-cd ~/Downloads; F=`ls -d1r */|grep confluent|tail -1` ;cd $F; export PATH=~/Downloads/$F/bin:$PATH
-kafka-avro-console-consumer --bootstrap-server localhost:9092 --from-beginning --topic GDELT_EVENT 
-```
-
-After displaying the News Events, press Control-C to stop the consumer:
-```
-^C
-...
-Processed a total of 1544 messages
 ```
 
 Consume the News Events using Kafka Rest
