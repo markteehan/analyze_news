@@ -69,9 +69,11 @@ sh restart_confluent.sh
 confluent stop connect
 ```
 
-Create a topic to store News Events
+Create a topic to store News Events.
+#Change: this must be a compacted topic as eventid must be unique for joins to functions.
 ```
-kafka-topics --create --zookeeper localhost:2181 --topic GDELT_EVENT --partitions 8 --replication-factor 1
+kafka-topics --create --zookeeper localhost:2181 --topic GDELT_EVENT --partitions 8 --replication-factor 1 --config cleanup.policy=compact
+
 WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.
 Created topic "GDELT_EVENT".
 ```
@@ -110,7 +112,40 @@ http://localhost:9021/
 .. inspect topics etc
 .. click kSQL
 
-In the Query editor create a stream that filters the 61 topic columns to a subset of columns that we are interested in.
+In the Query editor create a stream over the topic. Column names are not specified because of the scheama registry.
+```
+CREATE STREAM GDELT_STREAM  WITH (kafka_topic='GDELT_EVENT', value_format='AVRO');
+```
+Inspect in Control Center - this is a stream, but not a new topic.
+
+Create five new streams to filter news by tone: from very negative to very positive:
+```
+CREATE STREAM S_VERYNEG AS SELECT * FROM GDELT_STREAM WHERE AVGTONE < -10;
+CREATE STREAM S_NEG     AS SELECT * FROM GDELT_STREAM WHERE AVGTONE < -0.5  AND AVGTONE > -10;
+CREATE STREAM S_NEU     AS SELECT * FROM GDELT_STREAM WHERE AVGTONE > -0.5  AND AVGTONE < 0.5;
+CREATE STREAM S_POS     AS SELECT * FROM GDELT_STREAM WHERE AVGTONE >  0.5  AND AVGTONE < 10;
+CREATE STREAM S_VERPOS  AS SELECT * FROM GDELT_STREAM WHERE AVGTONE >  10;
+```
+We have started building a streaming application. Filters are metadata - they do not duplicate the messages.
+Aggregate the data to rank the countries where wach category of news is being reports.
+
+```
+CREATE 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+61 topic columns to a subset of columns that we are interested in.
 Add parameter "auto.offset.reset=earliest" 
 ```
 CREATE STREAM GDELT_STREAM (EventId bigint, Day bigint, MonthYear bigint, Actor1Code varchar, Actor1Name varchar, Actor1CountryCode varchar, Actor1Type1Code varchar, Actor2Code varchar, Actor2Name varchar, Actor2CountryCode varchar, Actor2Type1Code varchar, AvgTone double, SourceUrl varchar)
