@@ -82,6 +82,7 @@ Created topic "GDELT_EVENT".
 Start the Spooldir Connector Standalone
 ```
 D=`ls -d1r */|grep confluent|tail -1`; cd ~/Downloads/$D
+confluent stop connect
 connect-standalone etc/kafka/connect-standalone.properties ~/Downloads/kafka-connect-spooldir/config/GDELT.EVENT.properties
 ```
 
@@ -215,6 +216,25 @@ directory kafka-connect-spooldir                                  ==> confluent-
 
 
 
+#!#                               topic:GDELT_EVENT
+#!#                                    |
+#!#                              stream:GDELT_STREAM_PRE
+#!#                                    |
+#!#                              stream:GDELT_STREAM
+#!#                                    |
+#!#                              stream:S_VERYNEG  (where avgtone < -10)
+#!#                                    |
+#!#                                    |----------------------------------------------|
+#!#                                    |                                              |
+#!#                            06-table:T_VERYNEG_CTRY (GROUP BY COUNTRY)     07-table:T_URL (GROUP BY TONE)
+#!#                                    |                                              |
+#!#                           08-stream:REKEY1                                        |
+#!#                                    |                                              |
+#!#                           09-stream:REKEY2                                        |
+#!#                                    |                                              |
+#!#                                    ------------------------------------------------
+#!#                                                         |
+#!#                                                10-stream:S_FINAL
 
 
 
