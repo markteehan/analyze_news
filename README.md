@@ -113,63 +113,52 @@ http://localhost:9021/
 .. inspect topics etc
 .. click kSQL
 
-In the Query editor create a stream over the topic. Column names are not specified because of the scheama registry.
-```
-CREATE STREAM GDELT_STREAM  WITH (kafka_topic='GDELT_EVENT', value_format='AVRO');
-```
-Inspect in Control Center - this is a stream, but not a new topic.
+Our streaming application is going to use kSQL to build a realtime application that analyzes news stories to see which countries have the highest concentration of very negative news stories. 
+This will be done as a series of 
+ 
 
-Create five new streams to filter news by tone: from very negative to very positive:
-```
-CREATE STREAM S_VERYNEG AS SELECT * FROM GDELT_STREAM WHERE AVGTONE < -10;
-CREATE STREAM S_NEG     AS SELECT * FROM GDELT_STREAM WHERE AVGTONE < -0.5  AND AVGTONE > -10;
-CREATE STREAM S_NEU     AS SELECT * FROM GDELT_STREAM WHERE AVGTONE > -0.5  AND AVGTONE < 0.5;
-CREATE STREAM S_POS     AS SELECT * FROM GDELT_STREAM WHERE AVGTONE >  0.5  AND AVGTONE < 10;
-CREATE STREAM S_VERPOS  AS SELECT * FROM GDELT_STREAM WHERE AVGTONE >  10;
-```
-We have started building a streaming application. Filters are metadata - they do not duplicate the messages.
-Aggregate the data to rank the countries where wach category of news is being reports.
-
-```
-CREATE 
-
-
-
-
-
-
-
+ 
+#!#                        topic:GDELT_EVENT
+#!#                             |
+#!#                       stream:GDELT_STREAM_PRE
+#!#                             |
+#!#                       stream:GDELT_STREAM
+#!#                             |
+#!#                       stream:S_VERYNEG  (where avgtone < -10)
+#!#                             |
+#!#                             |----------------------------------------------|
+#!#                             |                                              |
+#!#                     06-table:T_VERYNEG_CTRY                        07-table:T_URL (GROUP BY TONE)
+#!#                             |                                              |
+#!#                    08-stream:REKEY1                                        |
+#!#                             |                                              |
+#!#                    09-stream:REKEY2                                        |
+#!#                             |                                              |
+#!#                             ------------------------------------------------
+#!#                                                 |
+#!#                                         10-stream:S_FINAL
 
 
 
+SET 'auto.offset.reset' = 'earliest';
+CREATE STREAM GDELT_STREAM_PRE  WITH (kafka_topic='GDELT_EVENT', value_format='AVRO');
+
+CREATE STREAM GDELT_STREAM AS SELECT EVENTID,AVGTONE, cast (abs(avgtone) as string) as S_ABS_AVGTONE, SOURCEURL,ACTOR1COUNTRYCODE FROM GDELT_STREAM_PRE;
+
+CREATE STREAM S_VERYNEG WITH (partitions=1) AS SELECT EVENTID,ABS(AVGTONE) AS AVGTONE, S_ABS_AVGTONE, SOURCEURL,ACTOR1COUNTRYCODE FROM GDELT_STREAM WHERE AVGTONE < -10;
+
+CREATE TABLE  T_VERYNEG_CTRY AS SELECT ACTOR1COUNTRYCODE,COUNT(*) CC,SUM(AVGTONE)/COUNT(*) AVGTONE,TOPK(S_ABS_AVGTONE,1)[0] S_ABS_MAXTONE FROM S_VERYNEG WHERE ACTOR1COUNTRYCODE <> 'null' GROUP BY ACTOR1COUNTRYCODE;
+
+CREATE TABLE  T_URL          AS SELECT S_ABS_AVGTONE AS URL_TONE,TOPK(SOURCEURL,1)[0] as URL FROM S_VERYNEG GROUP BY S_ABS_AVGTONE;
+
+CREATE STREAM REKEY1 (ACTOR1COUNTRYCODE VARCHAR, CC BIGINT, AVGTONE DOUBLE, S_ABS_MAXTONE VARCHAR) with (kafka_topic='T_VERYNEG_CTRY',value_format='AVRO');
+
+CREATE STREAM REKEY2 WITH(KAFKA_TOPIC='REKEY2') AS SELECT ACTOR1COUNTRYCODE, CC, AVGTONE, S_ABS_MAXTONE FROM REKEY1 PARTITION BY S_ABS_MAXTONE;
+
+CREATE STREAM S_FINAL AS SELECT REKEY2.ACTOR1COUNTRYCODE,CC,AVGTONE,S_ABS_MAXTONE,URL FROM REKEY2 JOIN T_URL ON T_URL.ROWKEY=REKEY2.S_ABS_MAXTONE;
 
 
-
-
-61 topic columns to a subset of columns that we are interested in.
-Add parameter "auto.offset.reset=earliest" 
-```
-CREATE STREAM GDELT_STREAM (EventId bigint, Day bigint, MonthYear bigint, Actor1Code varchar, Actor1Name varchar, Actor1CountryCode varchar, Actor1Type1Code varchar, Actor2Code varchar, Actor2Name varchar, Actor2CountryCode varchar, Actor2Type1Code varchar, AvgTone double, SourceUrl varchar)
-WITH (kafka_topic='GDELT_EVENT', value_format='AVRO');
-```
-Click Streams | ... | Query | Run Query to see the news events
-
-
-
-
-
-Next :
-1, open kSQL and create the stream over the topic. Do an inspect data
-2, In kSQL create an aggregated stream over the stream. Load more data. Inspect the data.
-3, Point: this is so muuch easier than implementing SQL Contexts using Spark Streaming.
-
-
-Phase II:
-1, wrap the SQL so that it can return JSON
-2, Return news query results to a D3 sankey diagram in chrome
-3, Show that the rest API can also be used to run SQL to retrieve data results (not just continuous queries).
-
-
+ 
 
 ===================
 Notes
@@ -213,28 +202,4 @@ the tarfile contains:
      file getnews.sh                                              ==> Downloads     
      file kafka-connect-spooldir/quickstart-spooldir.properties   ==> confluent-5.0.0/etc
 directory kafka-connect-spooldir                                  ==> confluent-5.0.0/share/java
-
-
-
-#!#                               topic:GDELT_EVENT
-#!#                                    |
-#!#                              stream:GDELT_STREAM_PRE
-#!#                                    |
-#!#                              stream:GDELT_STREAM
-#!#                                    |
-#!#                              stream:S_VERYNEG  (where avgtone < -10)
-#!#                                    |
-#!#                                    |----------------------------------------------|
-#!#                                    |                                              |
-#!#                            06-table:T_VERYNEG_CTRY (GROUP BY COUNTRY)     07-table:T_URL (GROUP BY TONE)
-#!#                                    |                                              |
-#!#                           08-stream:REKEY1                                        |
-#!#                                    |                                              |
-#!#                           09-stream:REKEY2                                        |
-#!#                                    |                                              |
-#!#                                    ------------------------------------------------
-#!#                                                         |
-#!#                                                10-stream:S_FINAL
-
-
 
