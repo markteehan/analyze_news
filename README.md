@@ -81,9 +81,12 @@ Created topic "GDELT_EVENT".
 
 Start the Spooldir Connector Standalone
 ```
-D=`ls -d1r */|grep confluent|tail -1`; cd ~/Downloads/$D
+cd ~/Downloads
+F=`ls -d1r */|grep confluent|tail -1`
+export PATH=~/Downloads/$F/bin:$PATH
+D=`cd ~/Downloads ; ls -d1r */|grep confluent|tail -1`; cd ~/Downloads/$D
 confluent stop connect
-connect-standalone etc/kafka/connect-standalone.properties ~/Downloads/kafka-connect-spooldir/config/GDELT.EVENT.properties
+connect-standalone ~/Downloads/$F/etc/kafka/connect-standalone.properties ~/Downloads/kafka-connect-spooldir/config/GDELT.EVENT.properties
 ```
 
 Get the latest news stories. Repeat this command on every quarter hour to get the latest news.
@@ -157,8 +160,29 @@ CREATE STREAM REKEY2 WITH(KAFKA_TOPIC='REKEY2') AS SELECT ACTOR1COUNTRYCODE, CC,
 
 CREATE STREAM S_FINAL AS SELECT REKEY2.ACTOR1COUNTRYCODE,CC,AVGTONE,S_ABS_MAXTONE,URL FROM REKEY2 JOIN T_URL ON T_URL.ROWKEY=REKEY2.S_ABS_MAXTONE;
 
+==================== sqlite
+/Users/teehan/Downloads/sqlite-tools-osx-x86-3240000/sqlite3 gdeltdb1
+
+D=`cd ~/Downloads ; ls -d1r */|grep confluent|tail -1`; cd ~/Downloads/$D
+./bin/connect-standalone etc/schema-registry/connect-avro-standalone.properties /Users/teehan/Downloads/sqlite-sink.properties
 
  
+ Check the table is loaded:
+ ~/Downloads/sqlite-tools-osx-x86-3240000/sqlite3 /tmp/gdeltdb1.dbf
+ SQLite version 3.24.0 2018-06-04 19:24:41
+Enter ".help" for usage hints.
+sqlite> .tables
+S_FINAL
+sqlite> select * from S_FINAL;
+
+sqlite> .headers on
+sqlite> select * from S_FINAL;
+CC|AVGTONE|ACTOR1COUNTRYCODE|MAXTONE|S_AVGTONE|URL
+111|12.2202557848202|BHR|17.2932330827068|12.220255784820155|https://luxoraleader.com/bahrain-court-sentences-58-people-on-terrorism-charges-report/612569/
+1495|11.6565285580654|IRN|20.3463203463203|11.656528558065371|http://www.xinhuanet.com/english/2018-01/02/c_136865384.htm
+223|12.1571057370229|MEX|18.1818181818182|12.157105737022947|https://www.seattletimes.com/nation-world/oklahoma-man-gets-probation-in-brutal-rape-case/
+
+
 
 ===================
 Notes
